@@ -9,7 +9,7 @@ Data, Sticks = PhaseMapping.load("BiCuV")
 x = Data.Q
 Y = Data.I
 Y ./= maximum(Y, dims = 1) # sum(abs2, Y, dims = 1)
-ind = 1:16
+ind = 1:32
 Y = Y[:, ind] # subsample for testing
 c = Data.composition[:, ind]
 nsticks = length(Sticks)
@@ -37,7 +37,7 @@ plot!(x, kb[:, i], label = "kronecker_mcbl")
 plot!(x, b[:, i], label = "mcbl")
 gui()
 
-substrate_background!(Y-kb, substrate, x, nsigma = nsigma, minres = minres)
+@time substrate_background!(Y-kb, substrate, x, nsigma = nsigma, minres = minres)
 println(substrate.a)
 println(substrate.α)
 println(substrate.σ)

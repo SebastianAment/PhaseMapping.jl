@@ -1,184 +1,160 @@
-struct Phase{T, V<:AbstractVector{T}, P}
+struct Phase{T, V<:AbstractVector{T}, CT, A, AT, ST, P}
     # per peak parameters
     c::V # peak intensity
     μ::V # peak location
     id::Int
 
-    dc::V # peak intensity variation
+    dc::CT # peak intensity variation
 
     # per spectrogram parameters
-    a::V # activation
-    α::V # multiplicative shift
-    σ::V # peak width
+    a::A # activation
+    α::AT # multiplicative shift
+	# a, b, c # unit cell dimensions
+	# α, β, γ # angles
+    σ::ST # peak width
 
     # peak profile
     profile::P
+end
+
+# constructor for single spectrogram analysis
+function Phase(c, μ, id::Int; profile = Lorentz(), width_init::Real = 1.)
+	length(c) == length(μ) || throw(DimensionMismatch())
+	c, μ = promote(c, μ)
+	dc = zero(c)
+	T = eltype(c)
+	a, α, σ = zero(T), one(T), convert(T, width_init)
+    Phase(c, μ, id, dc, a, α, σ, profile)
 end
 
 # n is the number of spectrograms in the data
 function Phase(c, μ, id::Int, n::Int; profile = Lorentz(), width_init::Real = 1.)
     length(c) == length(μ) || throw(DimensionMismatch())
     c, μ = promote(c, μ)
-    dc = similar(c)
-    T = eltype(c)
-    a, α, σ = zeros(T, n), ones(T, n), fill(convert(T, width_init), n)
+    dc = zero(c)
+	T = eltype(c)
+	a, α, σ = zeros(T, n), ones(T, n), fill(convert(T, width_init), n)
     Phase(c, μ, id, dc, a, α, σ, profile)
 end
 
 function Phase(S::StickPattern, n::Int; profile = Lorentz(), width_init::Real = 1.)
     Phase(S.c, S.μ, S.id, n, profile = profile, width_init = width_init)
 end
+function Phase(S::StickPattern; profile = Lorentz(), width_init::Real = 1.)
+    Phase(S.c, S.μ, S.id, profile = profile, width_init = width_init)
+end
+
+# function Phase(P::Phase, θ::AbstractVector)
+# 	a, α, σ = θ
+# 	Phase(P.c, P.μ, P.id, dc = P.dc, a = a, α = α, σ = σ, profile = P.profile)
+# end
 
 # allows copying Phase object and only changing certain parameters
 function Phase(P::Phase; dc = P.dc, a = P.a, α = P.α, σ = P.σ, profile = P.profile)
-    length(P.a) == length(P.α) == length(P.σ) || throw(DimensionMismatch())
-    c, μ, dc, a, α, σ = promote(P.c, P.μ, dc, a, α, σ)
-    Phase(c, μ, P.id, dc, a, α, σ, profile)
+    length(a) == length(α) == length(σ) || throw(DimensionMismatch())
+	length(P.c) == length(dc) || throw(DimensionMismatch())
+	all(≥(0), a) || throw(DomainError("$a: a has to be non-negative"))
+	all(≥(0), α) || throw(DomainError("$α: α has to be non-negative"))
+	all(≥(0), σ) || throw(DomainError("$σ: σ has to be non-negative"))
+    Phase(P.c, P.μ, P.id, dc, a, α, σ, profile)
 end
 
-# not counting c and μ which are assumed fixed
-nparameters(P::Phase) = 3length(P.a) + length(P.dc)
-
 # evaluate phase at x at jth spectrogram
+# to evaluate all spectrograms, use broadcasting
+# to P.((x,), (1:length(P.a))') for scalar x or
+# P.(x, (1:length(P.a))') for vector x
+# TODO: @avx?
 function (P::Phase)(x::Real, j::Int)
     y = zero(x)
-    α, σ = P.α[j], P.σ[j]
     @simd for i in eachindex(P.c)
         @inbounds begin
-            c = P.c[i] + P.dc[i]
-            μ = α * P.μ[i]
-            y += c * P.profile((x-μ)/σ)
+			c = P.c[i] + P.dc[i]
+			μ = P.α[j] * P.μ[i]
+			y += c * P.profile((x-μ)/P.σ[j])
         end
     end
     P.a[j] * y
 end
 
-# evaluate all spectrograms
-(P::Phase)(x::Real) = P.((x,), (1:length(P.a))')
-(P::Phase)(x::AbstractVector) = P.(x, (1:length(P.a))')
-
-# calculates phase pattern without shifting and activation
-function representative(P::Phase, x::AbstractVector)
-    representative!(similar(x), P, x)
-end
-function representative!(y::AbstractVector, P::Phase, x::AbstractVector)
-    y .= 0
-    σ = P.σ[1]
-    for j in eachindex(x)
-        @simd for i in eachindex(P.c)
-            @inbounds y[j] += P.c[i] * P.profile((x[j]-P.μ[i])/σ)
-        end
-    end
-    return y
+function (P::Phase)(x::Real)
+	y = zero(P.a)
+	if y isa Real
+		y = P(x, 1)
+	else
+		for i in eachindex(y)
+			y[i] = P(x, i)
+		end
+	end
+	return y
 end
 
-function residual_abs2(X::AbstractArray, Y::AbstractArray)
-    size(X) == size(Y) || throw(DimensionMismatch())
-    r = zero(promote_type(eltype(X), eltype(Y)))
-    @simd for i in eachindex(X)
-        @inbounds r += abs2(X[i]-Y[i])
-    end
-    r
+################################################################################
+# not counting c and μ which are assumed fixed
+nparameters(P::Phase) = 3length(P.a) + length(P.dc)
+function local_phase(P::Phase, i::Int)
+	Phase(P, a = P.a[i], α = P.α[i], σ = P.σ[i]) # @views ?
+end
+# create view of original arrays when indexing with vector
+function local_phase(P::Phase, i::AbstractVector)
+	@views Phase(P, a = P.a[i], α = P.α[i], σ = P.σ[i])
+end
+get_parameters(P::Phase, i::Int) = (P.a[i], P.α[i], P.σ[i])
+get_parameters(P::Phase) = vcat(P.a, P.α, P.σ)
+
+function get_parameters!(θ::AbstractVector, P::Phase)
+	n = check_div3(length(θ))
+	n == length(P.a) || throw(DimensionMismatch())
+	θ[1:n] = P.a
+	θ[n+1:2n] = P.α
+	θ[2n+1:3n] = P.σ
+	return θ
 end
 
-function optimize!(P::Phase, x::AbstractVector, y::AbstractVecOrMat;
-                            tol = 1e-4, maxiter::Int = 16, opt_c::Bool = false)
-    for i in 1:maxiter
-        optimize_a!(P, x, y, tol = tol)
-        opt_c && optimize_dc!(P, x, y, tol = tol)
-        optimize_α!(P, x, y, tol = tol)
-        optimize_σ!(P, x, y, tol = tol)
-    end
-    return P
+# creates views of subvectors of θ corresponding to a, α, σ
+# if θ does not contain dc
+function view_aασ(θ::AbstractVector)
+	n = check_div3(length(θ))
+	a = @view θ[1:n]
+	α = @view θ[n+1:2n]
+	σ = @view θ[2n+1:3n]
+	return a, α, σ
 end
 
-function get_optimizer(;tol = 1e-4, print_level = 0, max_iter = 32)
-    Model(optimizer_with_attributes(Ipopt.Optimizer, "tol" => tol,
-                                                "print_level" => print_level,
-                                                "max_iter" => max_iter))
-end
-# a optimization is quadratic program
-function optimize_a!(P::Phase, x::AbstractVector, Y::AbstractMatrix; tol = 1e-4)
-    model = get_optimizer(tol = tol)
-    n = length(P.a)
-    @variable(model, 0 ≤ a[i = 1:n], start = P.a[i])
-    function objective_a(a...)
-        A = Phase(P, a = [a...])(x)
-        residual_abs2(Y, A) # TODO: plus prior on a
-    end
-    register(model, :objective_a, n, objective_a, autodiff = true)
-    @NLobjective(model, Min, objective_a(a...))
-    JuMP.optimize!(model)
-    @. P.a = value(a)
+function scale_gradient!(θ::AbstractVector, a_scale = 1., α_scale = 1e-2, σ_scale = 1e-2)
+	a, α, σ = view_aασ(θ)
+	a .*= a_scale
+	α .*= α_scale
+	σ .*= σ_scale
+	return θ
 end
 
-function optimize_α!(P::Phase, x::AbstractVector, Y::AbstractMatrix;
-                                                    tol = 1e-4, dα = 5e-2)
-    model = get_optimizer(tol = tol)
-    n = length(P.a)
-    @variable(model, 1-dα ≤ α[i = 1:n] ≤ 1+dα, start = P.α[i])
-    function objective_α(α...)
-        A = Phase(P, α = [α...])(x)
-        residual_abs2(Y, A) # TODO: plus prior on α
-    end
-    register(model, :objective_α, n, objective_α, autodiff = true)
-    @NLobjective(model, Min, objective_α(α...))
-    JuMP.optimize!(model)
-    @. P.α = value(α)
+# checks if length of n is divisible by three
+function check_div3(n)
+	mod(n, 3) == 0 || throw("mod(length(θ)) = $(mod(length(θ), 3)) ≠ 0")
+	return n ÷ 3
 end
 
-function optimize_σ!(P::Phase, x::AbstractVector, Y::AbstractMatrix;
-                                        tol = 1e-4, min_σ = 1e-1, max_σ = 2e-1)
-    model = get_optimizer(tol = tol)
-    n = length(P.a)
-    @variable(model, min_σ ≤ σ[i = 1:n] ≤ max_σ, start = P.σ[i])
-    function objective_σ(σ...)
-        A = Phase(P, σ = [σ...])(x)
-        residual_abs2(Y, A) # TODO: plus prior on σ
-    end
-    register(model, :objective_σ, n, objective_σ, autodiff = true)
-    @NLobjective(model, Min, objective_σ(σ...))
-    JuMP.optimize!(model)
-    @. P.σ = value(σ)
+function set_parameters!(P::Phase, θ::AbstractVector)
+	n = check_div3(length(θ))
+	n == length(P.a) || throw(DimensionMismatch())
+	P.a .= θ[1:n]
+	P.α .= θ[n+1:2n]
+	P.σ .= θ[2n+1:3n]
+	return P
 end
 
-# dc optimization is quadratic program
-function optimize_dc!(P::Phase, x::AbstractVector, Y::AbstractMatrix; tol = 1e-4)
-    model = get_optimizer(tol = tol)
-    n = length(P.c)
-    @variable(model, 0 ≤ c[i = 1:n], start = P.c[i] + P.dc[i])
-    function objective_dc(c...)
-        dc = @. c - P.c
-        A = Phase(P, dc = dc)(x)
-        residual_abs2(Y, A) # TODO: plus prior on c
-    end
-    register(model, :objective_dc, n, objective_dc, autodiff = true)
-    @NLobjective(model, Min, objective_dc(c...))
-    JuMP.optimize!(model)
-    @. P.dc = value(c) - P.c
-end
-
-function optimize_aασ!(P::Phase, x::AbstractVector, Y::AbstractMatrix;
-                                        dα = 5e-2, min_σ = 1e-1, max_σ = 3)
-    model = get_optimizer()
-    n = length(P.a)
-    @variable(model, 0 ≤ a[i = 1:n], start = P.a[i])
-    @variable(model, 1-dα ≤ α[i = 1:n] ≤ 1+dα, start = P.α[i])
-    @variable(model, min_σ ≤ σ[i = 1:n] ≤ max_σ, start = P.σ[i])
-    function objective_θ(θ...)
-        a = [ai for ai in θ[1:n]]
-        α = [ai for ai in θ[n+1:2n]]
-        σ = [ai for ai in θ[2n+1:3n]]
-        A = Phase(P, a = a, α = α, σ = σ)(x)
-        residual_abs2(Y, A) # TODO: plus prior on θ
-    end
-    register(model, :objective_θ, 3n, objective_θ, autodiff = true)
-    @NLobjective(model, Min, objective_θ(a..., α..., σ...))
-    JuMP.optimize!(model)
-    @. P.σ = value(σ)
+# only assign ith parameters
+function set_parameters!(P::Phase, i::Int, θ::AbstractVector)
+	length(θ) == 3 || throw(DimensionMismatch())
+	P.a[i] = θ[1]
+	P.α[i] = θ[2]
+	P.σ[i] = θ[3]
+	return P
 end
 
 #### old code
+# typeofa(::Phase{T, V, CT, A}) where {T, V, CT, A} = A
+
 # temporary per peak parameters
 # ct::V
 # μt::V
@@ -192,8 +168,9 @@ end
 # function (P::Phase)(x::AbstractVector)
 #     c, μ, dc = reshape.((P.c, P.μ, P.dc), 1, :)
 #     a, α, σ = reshape.((P.a, P.α, P.σ), 1, :)
-#
 #     @. a * (c + dc) * P.profile( (x - α * μ) / σ )
+#
+# 	mapreduce(P.profile, )
 # end
 
 # # prior distribution over phase parameters
@@ -207,4 +184,23 @@ end
 #     p += sum(prior_a, exp.(a))
 #     p += sum(prior_α, α)
 #     p += sum(prior_σ, σ)
+# end
+
+
+# if P.a, P.σ, P.α isa Real
+# function (P::Phase)(x::Real)
+# 	# if P.a isa Real
+# 	y = zero(x)
+# 	@simd for i in eachindex(P.c)
+# 		@inbounds begin
+# 			c = P.c[i] + P.dc[i]
+# 			μ = P.α * P.μ[i]
+# 			y += c * P.profile((x-μ)/P.σ)
+# 		end
+# 	end
+# 	P.a * y
+	# else
+	# 	indices = 1:length(P.a)
+	# 	Phase.(x, indices')
+	# end
 # end
