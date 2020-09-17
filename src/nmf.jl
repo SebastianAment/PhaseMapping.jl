@@ -67,7 +67,6 @@ function xray!(U::XRAY, r::Int, tol::Real = 1e-6)
         # update residual
         @. R = X
         @views mul!(R, Xk, Hi, -1, 1)
-        display(norm(R))
     end
     W, H = @views X[:, K], H[1:i, :]
     return W, H, K

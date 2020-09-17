@@ -1,3 +1,4 @@
+# WARNING: currently not included
 # PhaseMatchingPursuit
 struct PhaseMappingPursuit{T, P<:Vector{<:Phase}}
     active_phases::P
