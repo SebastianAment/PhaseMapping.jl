@@ -44,6 +44,10 @@ function Phase(S::StickPattern; profile = Lorentz(), width_init::Real = 1.)
     Phase(S.c, S.μ, S.id, profile = profile, width_init = width_init)
 end
 
+function active_indices(phases::AbstractVector{<:Phase}, i::Int, tol::Real)
+	[p.a[i] > tol for p in phases]
+end
+
 # function Phase(P::Phase, θ::AbstractVector)
 # 	a, α, σ = θ
 # 	Phase(P.c, P.μ, P.id, dc = P.dc, a = a, α = α, σ = σ, profile = P.profile)
@@ -151,56 +155,3 @@ function set_parameters!(P::Phase, i::Int, θ::AbstractVector)
 	P.σ[i] = θ[3]
 	return P
 end
-
-#### old code
-# typeofa(::Phase{T, V, CT, A}) where {T, V, CT, A} = A
-
-# temporary per peak parameters
-# ct::V
-# μt::V
-# ct, μt = similar.((c, μ))
-# calculate temporaries for jth spectrogram
-# function temporaries(P::Phase, j::Int)
-#     @. P.ct = P.c[i] + P.dc[i]
-#     @. P.μt = P.α[j] * P.μ[i]
-# end
-
-# function (P::Phase)(x::AbstractVector)
-#     c, μ, dc = reshape.((P.c, P.μ, P.dc), 1, :)
-#     a, α, σ = reshape.((P.a, P.α, P.σ), 1, :)
-#     @. a * (c + dc) * P.profile( (x - α * μ) / σ )
-#
-# 	mapreduce(P.profile, )
-# end
-
-# # prior distribution over phase parameters
-# function prior(θ::AbstractMatrix)
-#     a, α, σ = θ[1,:], θ[2,:], θ[3,:]
-#     # prior_a = nld(Normal(0., 1.)) # prior on activation variance
-#     prior_a(a) = 10a
-#     prior_α = nld(Normal(log(1.), 2e-3^2)) # controls prior of shift, prior variance between 1e-2 to 1e-3 squared
-#     prior_σ = nld(Normal(log(.5), 1e-1^2)) # prior of peak width
-#     p = 0
-#     p += sum(prior_a, exp.(a))
-#     p += sum(prior_α, α)
-#     p += sum(prior_σ, σ)
-# end
-
-
-# if P.a, P.σ, P.α isa Real
-# function (P::Phase)(x::Real)
-# 	# if P.a isa Real
-# 	y = zero(x)
-# 	@simd for i in eachindex(P.c)
-# 		@inbounds begin
-# 			c = P.c[i] + P.dc[i]
-# 			μ = P.α * P.μ[i]
-# 			y += c * P.profile((x-μ)/P.σ)
-# 		end
-# 	end
-# 	P.a * y
-	# else
-	# 	indices = 1:length(P.a)
-	# 	Phase.(x, indices')
-	# end
-# end

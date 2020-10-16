@@ -3,12 +3,12 @@ using Test
 using LinearAlgebra
 using PhaseMapping
 using PhaseMapping: PeakProfile, Lorentz, Gauss, PseudoVoigt
-using PhaseMapping: Phase, optimize!, representativ
+using PhaseMapping: Phase, optimize!, representative, fit_phases, colnorms, get_parameters
 # using PhaseMapping: Phase, optimize!, representative, optimize_a!, optimize_α!,
 #                     optimize_σ!, optimize_dc!, optimize_aασ!
-
 using Plots
 plotly()
+verbose = false
 @testset "Phase" begin
 
     Data, Sticks = PhaseMapping.load("AlLiFe")
@@ -25,7 +25,7 @@ plotly()
 
     x = collect(0:.1:90)
     P = phases[1]
-    println(P)
+    verbose && println(P)
     p = representative(P, x)
     @test p isa AbstractVector
     @test length(p) == length(x)
@@ -34,22 +34,39 @@ plotly()
     # stochastic optimization
     P = Phase(P, a = rand())
     y = P.(x)
-    println(P.a)
-    println(P.α)
-    println(P.σ)
+    if verbose
+        println(P.a)
+        println(P.α)
+        println(P.σ)
+    end
 
     P2 = Phase(P, a = 0.)
     yc = copy(y)
-    P2 = optimize!([P2], x, y, maxiter = 16)
+    std_noise = .01
+    mean_θ = [1., 1., .2]
+    std_θ = [2., .01, .2]
+    P2 = optimize!([P2], x, y, std_noise, mean_θ, std_θ, maxiter = 32)
     P2 = P2[1]
     @test isapprox(P2.a, P.a, atol = tol)
-    println(P2.α)
-    println(P2.σ)
-    plot(x, y)
-    plot!(x, P2.(x))
-    gui()
+    if verbose
+        println(P.a)
+        println(P.α)
+        println(P.σ)
+        plot(x, y)
+        plot!(x, P2.(x))
+        gui()
+    end
 
-
+    phases, residuals = fit_phases(phases, x, y)
+    r = colnorms(residuals)
+    ind = findall(<(0.01), r)
+    if verbose
+        plot(x, y)
+        for i in ind
+            plot!(x, phases[i].(x))
+        end
+        gui()
+    end
     # optimization of a
     # a = rand(k)
     # P.a .= a
