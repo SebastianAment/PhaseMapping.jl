@@ -83,11 +83,12 @@ function optimize!(θ::AbstractMatrix, phases::AbstractVector{<:Phase},
 		prior!(p, θ)
 		return rp
 	end
-	# if necessary, do parameter initialization
+	# if necessary, initialize activations
 	if any(!>(0), @view θ[1,:])
 		@. θ[1, :] = initialize_activation(phases, (x,), (y,))
+		@. θ[1, :] = max(θ[1, :], 1e-3) # make certain activations are above positive threshold
 	end
-	@. θ = log(θ)
+	@. θ = log(θ) # transform to log-space
 	(any(isnan, θ) || any(isinf, θ)) && throw("any(isinf, θ) = $(any(isinf, θ)), any(isnan, θ) = $(any(isnan, θ))")
 	θ = vec(θ)
 	if regularization
@@ -103,6 +104,6 @@ function optimize!(θ::AbstractMatrix, phases::AbstractVector{<:Phase},
 	λ = 1e-6
 	Optimization.optimize!(LM, θ, copy(r), stn, λ, Val(false))
 	θ = reshape(θ, 3, :)
-	@. θ = exp(θ)
+	@. θ = exp(θ) # transform back to real space
 	return θ
 end
