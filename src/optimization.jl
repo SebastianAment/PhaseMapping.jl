@@ -102,7 +102,7 @@ function optimize!(θ::AbstractMatrix, phases::AbstractVector{<:Phase},
 						min_decrease = 1e-8, max_iter = maxiter,
 						decrease_factor = 7, increase_factor = 10, max_step = 1.0)
 	λ = 1e-6
-	Optimization.optimize!(LM, θ, copy(r), stn, λ, Val(false))
+	OptimizationAlgorithms.optimize!(LM, θ, copy(r), stn, λ, Val(false))
 	θ = reshape(θ, 3, :)
 	@. θ = exp(θ) # transform back to real space
 	return θ

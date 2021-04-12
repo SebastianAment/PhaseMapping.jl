@@ -7,8 +7,7 @@
 struct PhaseMatchingPursuit{T, PH<:AbstractVector{<:Phase{T}},
 			PT<:AbstractVector{<:SmoothPattern{T}}, AS<:AbstractVector{Bool},
 			XT<:AbstractVecOrMat, RT<:AbstractVecOrMat, AT<:AbstractVecOrMat,
-			# P1, P2, P3,
-			PR}
+			NS<:Real, PV<:AbstractVector{T}, PR}
 	phases::PH
 	patterns::PT
 	isactive::AS
@@ -17,38 +16,39 @@ struct PhaseMatchingPursuit{T, PH<:AbstractVector{<:Phase{T}},
 	r::RT
 	rA::AT
 
+	# prior normal distributions
+	noise_std::NS # standard deviation of the noise
+	prior_mean::PV # prior mean for a, α, σ
+	prior_std::PV # prior std for a, α, σ
+
 	# preconditioner
 	precondition!::PR
-
-	# prior normal distributions
-	# prior_a::P1
-	# prior_α::P2
-	# prior_σ::P3
 
 	# background model
 end
 
 const PMP = PhaseMatchingPursuit
 function PMP(phases::AbstractVector{<:Phase}, x::AbstractVector, y::AbstractVecOrMat,
-										isactive = fill(false, length(phases)),
-										preconditioner = mean_preconditioner; # svd_preconditioner; #
-										max_shift::Real = .1, nshift::Int = 35)
+			 isactive = fill(false, length(phases)), noise_std::Real = .1,
+			 prior_mean = [1., 1., .2], prior_std = [3., .1, .5],
+			 preconditioner = mean_preconditioner; # svd_preconditioner; #
+			 max_shift::Real = .1, nshift::Int = 33)
 	α = range(1-max_shift, stop = 1+max_shift, length = nshift)
 	patterns = [SmoothPattern(p, x, α) for p in phases]
 	precondition! = preconditioner(patterns)
 	@. renormalize!(precondition!(patterns))
-	PMP(phases, patterns, x, y, isactive, precondition!)
+	PMP(phases, patterns, x, y, isactive, noise_std, prior_mean, prior_std, precondition!)
 end
 
 function PMP(phases::AbstractVector{<:Phase}, patterns::AbstractVector{<:SmoothPattern},
-									x::AbstractVector, y::AbstractVecOrMat,
-									isactive = fill(false, length(phases)),
-									precondition! = identity)
+			 x::AbstractVector, y::AbstractVecOrMat, isactive = fill(false, length(phases)),
+			 noise_std::Real = .01, prior_mean = [1., 1., .2], prior_std = [3., .01, 1.],
+			 precondition! = identity)
 	r = similar(y)
 	# WARNING, need to allocate one rA for each thread!
 	nshift = length(patterns[1].α)
 	rA = y isa AbstractVector ? zeros(nshift) : zeros(nshift, size(y, 2))
-	PMP(phases, patterns, isactive, x, r, rA, precondition!)
+	PMP(phases, patterns, isactive, x, r, rA, noise_std, prior_mean, prior_std, precondition!)
 end
 
 function Base.getproperty(P::PMP, s::Symbol)
@@ -76,7 +76,8 @@ function pmp!(phases::Vector{<:Phase}, x, y, k::Int; tol = 1e-3)
 	P.active_phases
 end
 function pmp!(P::PMP, x, y, k::Int; tol = 1e-3)
-	for _ in 1:k
+	for i in 1:k
+		println("iteration ", i)
 		update!(P, x, y, tol = tol) || break
 	end
 	return P
@@ -111,9 +112,12 @@ function update!(P::PMP, x::AbstractVector, y::AbstractVector; tol::Real = 1e-3)
     m, i = pmp_index!(P, x, y)
     if m > tol
 		a, α = maxinnerparameters(P.patterns[i], P.r) # initialize with best fitting activation and shift
+		println("alpha")
+		println(α)
 		P.phases[i] = Phase(P.phases[i], a = a, α = α)
 		P.isactive[i] = true
-		optimize!(P.active_phases, x, y)
+		optimize!(P.active_phases, x, y, P.noise_std, P.prior_mean, P.prior_std;
+				  maxiter = 32, regularization = true) # calls regularized least-squares fit
 		return true
 	else
 		return false

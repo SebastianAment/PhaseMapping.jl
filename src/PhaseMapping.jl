@@ -17,10 +17,9 @@ using HDF5
 # using Ipopt
 using ForwardDiff
 const FD = ForwardDiff
-using Optimization
-using Optimization: LevenbergMarquart, LevenbergMarquartSettings, GaussNewton
-using Optimization: SaddleFreeNewton, DecreasingStep, fixedpoint!, StoppingCriterion, CustomDirection
-# using NormalDistributions
+using OptimizationAlgorithms
+using OptimizationAlgorithms: LevenbergMarquart, LevenbergMarquartSettings, GaussNewton
+using OptimizationAlgorithms: SaddleFreeNewton, DecreasingStep, fixedpoint!, StoppingCriterion, CustomDirection
 
 colnorms(A) = [norm(a) for a in eachcol(A)]
 
