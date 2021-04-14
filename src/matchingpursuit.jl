@@ -70,14 +70,18 @@ function Base.getproperty(P::PMP, s::Symbol)
 end
 
 ################################### pmp ########################################
-function pmp!(phases::Vector{<:Phase}, x, y, k::Int; tol = 1e-3)
-	P = PMP(phases, x, y)
+# add min_delta_tol
+# tol is squared-residual tolerance
+function pmp!(phases::AbstractVector{<:Phase}, x, y, k::Int, noise_std::Real = .1,
+			  prior_mean = [1., 1., .2], prior_std = [3., .1, .5];
+			  tol::Real = 1e-3, max_shift::Real = .1)
+	isactive = fill(false, length(phases))
+	P = PMP(phases, x, y, isactive, noise_std, prior_mean, prior_std, max_shift = max_shift)
 	pmp!(P, x, y, k, tol = tol)
 	P.active_phases
 end
 function pmp!(P::PMP, x, y, k::Int; tol = 1e-3)
 	for i in 1:k
-		println("iteration ", i)
 		update!(P, x, y, tol = tol) || break
 	end
 	return P
@@ -88,8 +92,8 @@ end
 function pmp!(P::PMP, x::AbstractVector, y::AbstractVector, i::Int, k::Int;
 													maxiter = 256, tol = 1e-3)
 	local_phases = Phase.(P.active_phases, a = 0., α = 1., σ = .2) # active set local to ith pattern
-	local_PMP = PMP(local_phases, P.active_patterns, x, y,
-					fill(false, length(local_phases)), P.precondition!)
+	is_active = fill(false, length(local_phases))
+	local_PMP = PMP(local_phases, P.active_patterns, x, y, isactive, P.precondition!)
 	pmp!(local_PMP, x, y, k, tol = tol)
 	for (p, lp) in zip(P.active_phases, local_phases)
 		p.a[i], p.α[i], p.σ[i] = lp.a, lp.α, lp.σ
@@ -112,8 +116,6 @@ function update!(P::PMP, x::AbstractVector, y::AbstractVector; tol::Real = 1e-3)
     m, i = pmp_index!(P, x, y)
     if m > tol
 		a, α = maxinnerparameters(P.patterns[i], P.r) # initialize with best fitting activation and shift
-		println("alpha")
-		println(α)
 		P.phases[i] = Phase(P.phases[i], a = a, α = α)
 		P.isactive[i] = true
 		optimize!(P.active_phases, x, y, P.noise_std, P.prior_mean, P.prior_std;
@@ -133,6 +135,27 @@ function residual!(P::PMP, x::AbstractVector, Y::AbstractVecOrMat)
 		@. P.r = Y - L(x, indices')
 	end
 	P.r
+end
+
+# creates an array of library as calculated by pmp on its path from 1 to k phases
+function pmp_path!(phases::AbstractVector{<:Phase}, x, y, k::Int, noise_std::Real = .1,
+			  prior_mean = [1., 1., .2], prior_std = [3., .1, .5];
+			  tol::Real = 1e-3, max_shift::Real = .1)
+	isactive = fill(false, length(phases))
+	P = PMP(phases, x, y, isactive, noise_std, prior_mean, prior_std, max_shift = max_shift)
+	return pmp_path!(P, x, y, k, tol = tol)
+end
+
+function pmp_path!(P::PMP, x, y, k::Int; tol = 1e-3)
+	libraries = fill(Library(copy(P.active_phases)), k)
+	residuals = zeros(k)
+	for i in 1:k
+		update!(P, x, y, tol = tol) || break
+		L = Library(copy(P.active_phases))
+		libraries[i] = L
+		residuals[i] = norm(residual!(P, x, y))
+	end
+	return libraries, residuals
 end
 
 # function preallocate_rA(A::AbstractMatrix, Y::AbstractVecOrMat)

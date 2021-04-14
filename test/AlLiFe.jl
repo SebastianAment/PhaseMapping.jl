@@ -1,6 +1,6 @@
 using LinearAlgebra
 using PhaseMapping
-using PhaseMapping: Phase, optimize!, Lorentz, Gauss, Library, pmp!, SmoothPattern, ternary
+using PhaseMapping: Phase, optimize!, Lorentz, Gauss, Library, pmp!, SmoothPattern, ternary, pmp_path!
 using Plots
 plotly()
 
@@ -26,9 +26,9 @@ y = Y[:, spectroind]
 
 width_init = 2e-1
 if y isa AbstractVector
-    phases = Phase.(Sticks, width_init = width_init, profile = Gauss())
+    all_phases = Phase.(Sticks, width_init = width_init, profile = Gauss())
 else
-    phases = Phase.(Sticks, nc, width_init = width_init, profile = Gauss())
+    all_phases = Phase.(Sticks, nc, width_init = width_init, profile = Gauss())
 end
 
 nsticks = length(Sticks)
@@ -36,7 +36,7 @@ stickind = nsticks-5:nsticks
 # stickind = nsticks-16:nsticks
 # stickind = nsticks-64:nsticks
 # stickind = 1:length(phases)
-phases = phases[stickind]
+phases = all_phases[stickind]
 
 # α = [1.]
 # marginal_patterns = [MarginalPattern(p, x, α) for p in phases]
@@ -46,8 +46,6 @@ phases = phases[stickind]
 # plot(x, pat)
 # gui()
 
-L = Library(phases)
-P = phases[4]
 verbose = false
 if verbose
     println("before")
@@ -60,6 +58,10 @@ if verbose
     println("ids")
     display([p.id for p in L.phases])
 end
+
+# creating full pmp path with corresponding residuals
+libraries, residuals = pmp_path!(phases, x, y, k)
+# diff(residuals) look at difference in residual norms
 
 # @time optimize!(phases, x, y, maxiter = 128)
 # @time phases = pmp(phases, x, y, 3)

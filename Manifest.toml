@@ -149,9 +149,9 @@ version = "2.11.3+4"
 
 [[ColorSchemes]]
 deps = ["ColorTypes", "Colors", "FixedPointNumbers", "Random", "StaticArrays"]
-git-tree-sha1 = "d3cf83862f70d430d4b34e43ed65e74bd50ae0e0"
+git-tree-sha1 = "9d7dfad1326b1ad29afa1366587806a14d727745"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.11.0"
+version = "3.12.0"
 
 [[ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -203,7 +203,7 @@ version = "0.5.7"
 
 [[CovarianceFunctions]]
 deps = ["DiffResults", "FillArrays", "ForwardDiff", "KroneckerProducts", "LazyArrays", "LazyInverse", "LinearAlgebra", "LinearAlgebraExtensions", "OptimizationAlgorithms", "SparseArrays", "SpecialFunctions", "TaylorSeries", "Test", "ToeplitzMatrices", "WoodburyIdentity"]
-git-tree-sha1 = "870e094563b8aec887ef33b73f2701a1819c94df"
+git-tree-sha1 = "cded83b9958fcaee5d68aa70ea8a359643799980"
 repo-rev = "master"
 repo-url = "git@github.com:SebastianAment/CovarianceFunctions.jl.git"
 uuid = "b3329135-7958-41d4-bb02-e084c5a526bf"
@@ -784,9 +784,9 @@ version = "1.0.10"
 
 [[MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
-git-tree-sha1 = "ff3aa3e4dbc837f80c2031de2f90125c8b3793f3"
+git-tree-sha1 = "9d8a9d164144aa1e2dee465a9526091750187a17"
 uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
-version = "0.2.15"
+version = "0.2.16"
 
 [[Mux]]
 deps = ["AssetRegistry", "Base64", "HTTP", "Hiccup", "Pkg", "Sockets", "WebSockets"]
@@ -1038,16 +1038,16 @@ uuid = "c946c3f1-0d1f-5ce8-9dea-7daa1f7e2d13"
 version = "0.7.1"
 
 [[SCS_GPU_jll]]
-deps = ["Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "44badbd675d79303fd5b0a7a5380ed7624bd989a"
+deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
+git-tree-sha1 = "9c0b47a387c4c7d8a66abb11977391a6602d2384"
 uuid = "af6e375f-46ec-5fa0-b791-491b0dfa44a4"
-version = "2.1.2+0"
+version = "2.1.3+0"
 
 [[SCS_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "OpenBLAS_jll", "Pkg"]
-git-tree-sha1 = "6cdaccb5e6a69455f960de1ae445ba1de5db9d0d"
+git-tree-sha1 = "4816f8272a3e9d08a32a4e94b367c7e84057c145"
 uuid = "f4f2fc5b-1d94-523c-97ea-2ab488bedf4b"
-version = "2.1.2+1"
+version = "2.1.3+0"
 
 [[SHA]]
 uuid = "ea8e919c-243c-51af-8825-aaa63cd721ce"
@@ -1140,9 +1140,9 @@ version = "1.0.1"
 
 [[Tables]]
 deps = ["DataAPI", "DataValueInterfaces", "IteratorInterfaceExtensions", "LinearAlgebra", "TableTraits", "Test"]
-git-tree-sha1 = "a9ff3dfec713c6677af435d6a6d65f9744feef67"
+git-tree-sha1 = "c9d2d262e9a327be1f35844df25fe4561d258dc9"
 uuid = "bd369af6-aec1-5ad0-b16a-f7cc5008161c"
-version = "1.4.1"
+version = "1.4.2"
 
 [[Tar]]
 deps = ["ArgTools", "SHA"]
@@ -1150,9 +1150,9 @@ uuid = "a4e569a6-e804-4fa4-b0f3-eef7a1d5b13e"
 
 [[TaylorSeries]]
 deps = ["InteractiveUtils", "LinearAlgebra", "Markdown", "Requires", "SparseArrays"]
-git-tree-sha1 = "689b31ce044e419621706c6a876f8d07c7b5318c"
+git-tree-sha1 = "66f4d1993bae49eeba21a1634b5f65782585a42c"
 uuid = "6aa5eb33-94cf-58f4-a9d0-e4b2c4fc25ea"
-version = "0.10.12"
+version = "0.10.13"
 
 [[Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
