@@ -148,7 +148,7 @@ end
 
 function pmp_path!(P::PMP, x, y, k::Int; tol = 1e-3)
 	libraries = fill(Library(copy(P.active_phases)), k)
-	residuals = zeros(k)
+	residuals = fill(Inf, k)
 	for i in 1:k
 		update!(P, x, y, tol = tol) || break
 		L = Library(copy(P.active_phases))
