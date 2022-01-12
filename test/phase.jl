@@ -6,8 +6,8 @@ using PhaseMapping: PeakProfile, Lorentz, Gauss, PseudoVoigt
 using PhaseMapping: Phase, optimize!, representative, fit_phases, colnorms, get_parameters
 # using PhaseMapping: Phase, optimize!, representative, optimize_a!, optimize_α!,
 #                     optimize_σ!, optimize_dc!, optimize_aασ!
-using Plots
-plotly()
+# using Plots
+# plotly()
 verbose = false
 @testset "Phase" begin
 
@@ -48,25 +48,25 @@ verbose = false
     P2 = optimize!([P2], x, y, std_noise, mean_θ, std_θ, maxiter = 32)
     P2 = P2[1]
     @test isapprox(P2.a, P.a, atol = tol)
-    if verbose
-        println(P.a)
-        println(P.α)
-        println(P.σ)
-        plot(x, y)
-        plot!(x, P2.(x))
-        gui()
-    end
+    # if verbose
+    #     println(P.a)
+    #     println(P.α)
+    #     println(P.σ)
+    #     plot(x, y)
+    #     plot!(x, P2.(x))
+    #     gui()
+    # end
 
     phases, residuals = fit_phases(phases, x, y)
     r = colnorms(residuals)
     ind = findall(<(0.01), r)
-    if verbose
-        plot(x, y)
-        for i in ind
-            plot!(x, phases[i].(x))
-        end
-        gui()
-    end
+    # if verbose
+    #     plot(x, y)
+    #     for i in ind
+    #         plot!(x, phases[i].(x))
+    #     end
+    #     gui()
+    # end
     # optimization of a
     # a = rand(k)
     # P.a .= a
